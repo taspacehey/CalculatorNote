@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calculator</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧮</text></svg>">
+<style>
+  :root{
+    --bg:#efeae2; --bar:#075e54; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
+    --mine:#d9fdd3;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);}
+  .hidden{display:none !important}
+
+  /* ---------- login ---------- */
+  #lock{min-height:100%;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#075e54,#128c7e)}
+  .box{background:var(--card);padding:28px 24px;border-radius:16px;width:100%;max-width:360px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  .box h1{margin:0 0 6px;font-size:28px}
+  .box p{margin:0 0 18px;color:var(--muted);font-size:14px}
+  .box input{width:100%;padding:12px 14px;border:1px solid #d1d5db;border-radius:10px;font:inherit;font-size:16px;margin-bottom:12px}
+  .box button{width:100%;padding:12px;border:0;border-radius:10px;background:var(--bar);color:#fff;font:inherit;font-size:16px;cursor:pointer}
+  .box button:disabled{opacity:.6}
+  #err{color:#b91c1c;font-size:14px;min-height:20px;margin-top:10px;word-break:break-all;user-select:all}
+
+  /* ---------- app ---------- */
+  #app{height:100%;display:flex;flex-direction:column}
+  header{background:var(--bar);color:#fff;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:max(10px,env(safe-area-inset-top))}
+  header b{font-size:20px}
+  header button{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:8px;padding:6px 12px;font:inherit;font-size:15px;cursor:pointer}
+  #list{flex:1;overflow-y:auto;padding:12px 10px;display:flex;flex-direction:column;gap:6px}
+  .day{align-self:center;background:#e1f2fb;color:#475569;font-size:12px;padding:3px 12px;border-radius:999px;margin:8px 0}
+  .empty{align-self:center;color:var(--muted);margin-top:40px;font-size:14px}
+
+  .bubble{max-width:82%;padding:7px 10px 5px;border-radius:12px;box-shadow:0 1px 1px rgba(0,0,0,.12);word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-wrap;line-height:1.5;font-size:16px}
+  .bubble.mine{align-self:flex-end;background:var(--mine);border-top-right-radius:2px}
+  .bubble.other{align-self:flex-start;border-top-left-radius:2px}
+  .meta{display:flex;justify-content:flex-end;align-items:center;gap:8px;font-size:11px;color:var(--muted);margin-top:2px;white-space:normal}
+  .meta .del{cursor:pointer;opacity:.6}
+  .meta .del:hover{opacity:1;color:#b91c1c}
+  .bubble.failed{outline:2px solid #ef4444;cursor:pointer}
+
+  .pic{display:block;max-width:100%;max-height:300px;min-width:120px;min-height:80px;border-radius:8px;background:#e5e7eb;cursor:zoom-in;color:var(--muted);font-size:12px}
+  .vid{display:block;max-width:100%;max-height:320px;border-radius:8px;background:#000}
+  audio{display:block;width:240px;max-width:100%;height:40px}
+  .mbtn{border:0;border-radius:8px;padding:8px 16px;background:var(--bar);color:#fff;font:inherit;font-size:14px;cursor:pointer}
+
+  #viewer{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:50;cursor:zoom-out}
+  #viewer img{max-width:96%;max-height:96%;border-radius:6px}
+
+  form{display:flex;gap:8px;padding:8px 10px;background:#f0f2f5;padding-bottom:max(8px,env(safe-area-inset-bottom))}
+  textarea{flex:1;resize:none;border:0;border-radius:20px;padding:10px 14px;font:inherit;font-size:16px;max-height:120px;min-height:44px;outline:none}
+  form button{border:0;border-radius:50%;width:46px;height:46px;background:var(--bar);color:#fff;font-size:20px;cursor:pointer;align-self:flex-end;flex:none}
+  form button.attach{background:#fff;color:var(--bar);box-shadow:0 1px 2px rgba(0,0,0,.15)}
+  form button.attach.on{background:#dc2626;color:#fff}
+
+  /* ---------- calculator disguise (Casio fx-991EX style) ---------- */
+  #calc{position:fixed;inset:0;background:#e6e6e3;color:#fff;display:flex;justify-content:center;z-index:10;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+  .cw{position:relative;width:100%;max-width:440px;height:100%;display:flex;flex-direction:column;padding:max(8px,env(safe-area-inset-top)) 12px max(10px,env(safe-area-inset-bottom));background:#17181a radial-gradient(#2a2b2f 1px,transparent 1.2px) 0 0/5px 5px;overflow:hidden;border-radius:26px 26px 38px 38px}
+  #brand{display:flex;justify-content:space-between;align-items:flex-start;padding:2px 4px 6px}
+  #brand .bl1{display:flex;flex-direction:column;line-height:1.15}
+  #brand b{font-size:19px;letter-spacing:1px}
+  #brand i{font-size:11px;font-weight:700;margin-top:2px}
+  #brand span{font-size:10px;letter-spacing:3px;color:#d4345a}
+  #sign{width:92px;height:36px;background:#2b1d20;border:1px solid #3a2a2d;border-radius:4px;color:#5b4a4d;font-size:16px;cursor:pointer;padding:0}
+  #lcd{flex:1;min-height:84px;background:#d8dbd3;color:#101210;border-radius:6px;border:4px solid #08090a;box-shadow:0 0 0 2px #3a3b3f;padding:3px 9px 5px;display:flex;flex-direction:column;font-family:'Courier New',ui-monospace,monospace}
+  #stl{display:flex;justify-content:space-between;font-size:10px;font-weight:700;height:13px}
+  #ex{flex:1;overflow-y:auto;font-size:19px;line-height:1.3;overflow-wrap:anywhere}
+  #ex .cu{display:inline-block;width:2px;height:1em;background:#101210;vertical-align:-2px;animation:bl 1s steps(1) infinite}
+  @keyframes bl{50%{opacity:0}}
+  #res{text-align:right;font-size:clamp(26px,8.5vw,36px);font-weight:700;white-space:nowrap;overflow:hidden;min-height:42px;line-height:42px}
+  #k6,#k5{display:grid;margin-top:6px}
+  #k6{grid-template-columns:repeat(6,1fr);gap:0 7px}
+  #k5{grid-template-columns:repeat(5,1fr);gap:0 9px}
+  .cell{display:flex;flex-direction:column;justify-content:flex-end;min-width:0;margin-bottom:3px}
+  .lb{font-size:8.5px;height:12px;line-height:12px;text-align:center;white-space:nowrap;overflow:hidden;letter-spacing:-.2px}
+  .lb i{font-style:normal;margin:0 1px}.wh{color:#fff}.sg{color:#e6b832}.ar{color:#e2415f}.bu{color:#4aa3ff}
+  .cell button{height:clamp(27px,4.5vh,38px);border:1px solid #4b4c51;border-radius:8px;background:linear-gradient(#3d3e43,#1c1d20);color:#fff;font:inherit;font-size:clamp(11px,3.4vw,15px);box-shadow:0 2px 0 #000;cursor:pointer;padding:0;font-weight:600}
+  .cell button:active{transform:translateY(1px);box-shadow:0 1px 0 #000}
+  .cell button.rnd{width:34px;height:34px;margin:0 auto;border-radius:50%;border:0;background:radial-gradient(circle at 40% 35%,#f3f3f3,#8a8b90 70%,#4a4b50)}
+  #k5 .cell button{height:clamp(32px,5.6vh,46px);border-radius:10px;background:linear-gradient(#fff,#d6d6d3);color:#0e0f10;border:0;box-shadow:0 2px 0 #7a7a7a;font-size:clamp(17px,5.2vw,23px);font-weight:700}
+  #k5 .cell button.bluek{background:linear-gradient(#2a4fc4,#1a3590);color:#fff;box-shadow:0 2px 0 #0b1a50;font-size:clamp(15px,4.6vw,20px)}
+  .pad{grid-column:3/5;grid-row:1/3;display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);margin:4px auto 3px;width:min(100%,96px);aspect-ratio:1/1;border-radius:50%;background:radial-gradient(circle,#0c0d0e 28%,#8c8d92 30%,#d8d8da 55%,#505156)}
+  .pad button{background:none;border:0;color:#fff;font-size:11px;cursor:pointer;padding:0}
+  .pad button:nth-child(1){grid-area:1/2}.pad button:nth-child(2){grid-area:2/1}.pad button:nth-child(3){grid-area:2/3}.pad button:nth-child(4){grid-area:3/2}
+  .cell button.on{box-shadow:0 0 0 2px #e6b832}
+  #sign{position:static}
+</style>
+</head>
+<body>
+
+<!-- calculator (what everyone sees first) -->
+<div id="calc">
+  <div class="cw">
+    <div id="brand"><div class="bl1"><b>CASIO</b><i>fx-991EX</i><span>CLASSWIZ</span></div><button id="sign" type="button" aria-label="More">⋮</button></div>
+    <div id="lcd"><div id="stl"><span id="st"></span><span id="stD">D</span></div><div id="ex"></div><div id="res">0</div></div>
+    <div id="k6"></div><div id="k5"></div>
+  </div>
+</div>
+
+<!-- password screen -->
+<div id="lock" class="hidden">
+  <div class="box">
+    <h1>🔒</h1>
+    <p>Enter password to open</p>
+    <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+    <button id="enter">Open</button>
+    <div id="err"></div>
+  </div>
+</div>
+
+<!-- main app -->
+<div id="app" class="hidden">
+  <header>
+    <b>🔒</b>
+    <button id="lockBtn">Lock</button>
+  </header>
+  <div id="list"></div>
+  <form id="form">
+    <button type="button" class="attach" id="attach" aria-label="Photo or video">📎</button>
+    <input type="file" id="file" accept="image/*,video/*" hidden>
+    <textarea id="ta" rows="1" maxlength="3000" placeholder="Write a note..."></textarea>
+    <button type="button" class="attach" id="mic" aria-label="Voice message">🎤</button>
+    <button type="submit" aria-label="Send">➤</button>
+  </form>
+</div>
+
+<div id="viewer" class="hidden"><img id="viewerImg" alt=""></div>
+
+<script>
+/* ============ settings ============ */
+const API_URL = 'https://script.google.com/macros/s/AKfycbwX8yKc-If4xp08pCor3V16yvZC7dVPVqyZAdKNb3NYZ4AwPkmVxoN6gM4ctoBwbKtP/exec';
+const SALT = 'gopon-note-v1-salt';   // must be the same on every device, do not change
+const POLL_MS = 5000;                // how often to check for new messages
+const IMG_MAX = 1280;                // max photo size in pixels
+const IMG_QUALITY = 0.72;            // photo quality (0 to 1)
+const VIDEO_MAX_MB = 15;             // max video size
+const VOICE_MAX_SEC = 300;           // max voice message length
+const PLACEHOLDER = 'Write a note...';
+const HIDE_ON_LEAVE = true;          // go back to the calculator when you leave the page/app
+const PW_HASH = 'bf4b4e7e73307aead8f8b0d5a4306235f8cbadb06dfe8d5e24fcfac474c416c9';                  // paste your password hash here (see instructions)
+/* ================================== */
+
+const enc = new TextEncoder(), dec = new TextDecoder();
+const $ = id => document.getElementById(id);
+let key = null;
+let messages = [];
+let lastSig = '';
+let dirty = false;
+const cache = new Map();      // id -> payload object
+const mediaUrls = new Map();  // id -> blob URL (photo / video / voice)
+const loading = new Set();    // media being downloaded
+const pending = new Set();    // not yet on the server
+const deleted = new Set();    // deleted locally
+let timer = null;
+
+/* identity of this device (different on every device) */
+const myDevice = (function () {
+  try {
+    let d = localStorage.getItem('gn_device');
+    if (!d) {
+      d = 'd-' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random().toString(36).slice(2));
+      localStorage.setItem('gn_device', d);
+    }
+    return d;
+  } catch (e) { return 'd-tmp-' + Math.random().toString(36).slice(2); }
+})();
+
+/* ---------- encryption (AES-GCM) ---------- */
+function toB64(buf) {
+  const b = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode.apply(null, b.subarray(i, i + 8192));
+  return btoa(s);
+}
+function fromB64(s) { const bin = atob(s); const b = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i); return b; }
+
+async function deriveKey(pw) {
+  const base = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: enc.encode(SALT), iterations: 150000, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+/* password check code (not the password itself) */
+async function pwHash(pw) {
+  const base = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: enc.encode(SALT + ':check'), iterations: 150000, hash: 'SHA-256' }, base, 256);
+  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function encryptBytes(bytes) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, bytes);
+  const out = new Uint8Array(12 + ct.byteLength);
+  out.set(iv, 0); out.set(new Uint8Array(ct), 12);
+  return toB64(out);
+}
+async function decryptBytes(b64) {
+  const b = fromB64(b64);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b.slice(0, 12) }, key, b.slice(12));
+  return new Uint8Array(pt);
+}
+const encryptText = t => encryptBytes(enc.encode(t));
+const decryptText = async b64 => dec.decode(await decryptBytes(b64));
+
+/* payload: plain text, or {"gn":1,"type":"img"|"vid"|"aud",...} */
+function parsePayload(s) {
+  if (s.indexOf('{"gn":1') === 0) {
+    try { const o = JSON.parse(s); if (o && o.type) return o; } catch (e) {}
+  }
+  return { type: 'txt', x: s };
+}
+
+/* ---------- talk to Google Sheet / Drive ---------- */
+async function apiGet() {
+  const r = await fetch(API_URL, { cache: 'no-store' });
+  return r.json();
+}
+async function apiPost(body) {
+  const r = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+/* ---------- sync ---------- */
+async function sync() {
+  const rows = await apiGet();
+  const out = [];
+  const seen = new Set();
+  for (const r of rows) {
+    if (deleted.has(r.id)) continue;
+    seen.add(r.id);
+    let p = cache.get(r.id);
+    if (p === undefined) {
+      try { p = parsePayload(await decryptText(r.data)); } catch (e) { p = { type: 'txt', x: '⚠️ Could not read' }; }
+      cache.set(r.id, p);
+    }
+    out.push({ id: r.id, time: r.time, device: r.device, p });
+  }
+  // keep messages that have not reached the server yet
+  for (const m of messages) {
+    if (!seen.has(m.id) && (pending.has(m.id) || m.failed) && !deleted.has(m.id)) out.push(m);
+  }
+  out.sort((a, b) => a.time - b.time);
+  messages = out;
+  render();
+}
+
+/* ---------- colours ---------- */
+const PALETTE = ['#dbeafe', '#fde2e4', '#fef3c7', '#ede9fe', '#cffafe', '#fee2e2'];
+function colorFor(dev) {
+  let h = 0;
+  for (let i = 0; i < dev.length; i++) h = (h * 31 + dev.charCodeAt(i)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
+
+/* ---------- media ---------- */
+function fmtSize(n) { return (n / 1048576).toFixed(1) + ' MB'; }
+function fmtDur(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+
+async function loadMedia(m, manual) {
+  const t = m.p.type;
+  if (!m.p.fid || mediaUrls.has(m.id) || loading.has(m.id)) return;
+  if (t === 'vid' && !manual) return;           // videos load only when tapped
+  loading.add(m.id);
+  try {
+    const r = await fetch(API_URL + '?file=' + encodeURIComponent(m.p.fid), { cache: 'no-store' });
+    const text = await r.text();
+    const bytes = await decryptBytes(text);
+    const mime = m.p.mime || (t === 'img' ? 'image/jpeg' : '');
+    mediaUrls.set(m.id, URL.createObjectURL(new Blob([bytes], { type: mime })));
+    loading.delete(m.id);
+    render(true);
+  } catch (e) {
+    loading.delete(m.id);
+    if (manual) { alert('Could not load. Try again.'); render(true); }
+  }
+}
+function openViewer(src) {
+  if (!src) return;
+  $('viewerImg').src = src;
+  $('viewer').classList.remove('hidden');
+}
+
+/* ---------- display ---------- */
+function nearBottom() {
+  const l = $('list');
+  return l.scrollHeight - l.scrollTop - l.clientHeight < 120;
+}
+function mediaBusy() {
+  return Array.prototype.some.call($('list').querySelectorAll('audio,video'), e => !e.paused && !e.ended);
+}
+function render(force) {
+  const sig = messages.map(m => m.id + (m.failed ? 'f' : '') + (pending.has(m.id) ? 'p' : '') + (mediaUrls.has(m.id) ? 'i' : '')).join('|');
+  if (!force && sig === lastSig) return;
+  if (mediaBusy()) { dirty = true; return; }   // do not interrupt playback
+  lastSig = sig; dirty = false;
+
+  const l = $('list');
+  const stick = nearBottom();
+  l.innerHTML = '';
+  if (!messages.length) {
+    const e = document.createElement('div');
+    e.className = 'empty'; e.textContent = 'No notes yet. Write one below.';
+    l.appendChild(e);
+    return;
+  }
+  let lastDay = '';
+  for (const m of messages) {
+    const d = new Date(m.time);
+    const day = d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+    if (day !== lastDay) {
+      const s = document.createElement('div');
+      s.className = 'day'; s.textContent = day;
+      l.appendChild(s);
+      lastDay = day;
+    }
+    const mine = m.device === myDevice;
+    const b = document.createElement('div');
+    b.className = 'bubble ' + (mine ? 'mine' : 'other') + (m.failed ? ' failed' : '');
+    if (!mine) b.style.background = colorFor(m.device);
+
+    const p = m.p;
+    const u = mediaUrls.get(m.id);
+    if (p.type === 'img') {
+      const img = document.createElement('img');
+      img.className = 'pic'; img.alt = 'Loading photo...';
+      if (u) { img.src = u; img.onclick = ev => { ev.stopPropagation(); openViewer(u); }; }
+      else loadMedia(m);
+      b.appendChild(img);
+    } else if (p.type === 'vid') {
+      if (u) {
+        const v = document.createElement('video');
+        v.className = 'vid'; v.controls = true; v.playsInline = true; v.preload = 'metadata'; v.src = u;
+        b.appendChild(v);
+      } else {
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.className = 'mbtn';
+        btn.textContent = '▶ Load video' + (p.size ? ' (' + fmtSize(p.size) + ')' : '');
+        btn.onclick = ev => { ev.stopPropagation(); btn.textContent = 'Loading...'; loadMedia(m, true); };
+        b.appendChild(btn);
+      }
+    } else if (p.type === 'aud') {
+      if (u) {
+        const a = document.createElement('audio');
+        a.controls = true; a.preload = 'metadata'; a.src = u;
+        b.appendChild(a);
+      } else {
+        const t = document.createElement('div');
+        t.textContent = '🎤 Loading voice message...' + (p.dur ? ' (' + fmtDur(p.dur) + ')' : '');
+        b.appendChild(t);
+        loadMedia(m);
+      }
+    } else if (p.type === 'txt') {
+      const t = document.createElement('div');
+      t.textContent = p.x;
+      b.appendChild(t);
+    } else {
+      const t = document.createElement('div');
+      t.textContent = '(Unsupported message)';
+      b.appendChild(t);
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const tm = document.createElement('span');
+    tm.textContent = m.failed ? 'Not saved, tap to retry' : (pending.has(m.id) ? '⏳' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }));
+    const x = document.createElement('span');
+    x.className = 'del'; x.textContent = '✕'; x.title = 'Delete';
+    x.onclick = ev => { ev.stopPropagation(); removeMsg(m.id); };
+    meta.append(tm, x);
+    b.appendChild(meta);
+
+    if (m.failed) b.onclick = () => retry(m.id);
+    l.appendChild(b);
+  }
+  if (stick) l.scrollTop = l.scrollHeight;
+}
+
+/* ---------- send, delete ---------- */
+async function pushToServer(m) {
+  try {
+    if (m.p.type !== 'txt' && !m.p.fid) {
+      const bytes = new Uint8Array(await m._blob.arrayBuffer());
+      const r = await apiPost({ action: 'upload', data: await encryptBytes(bytes) });
+      if (!r || !r.ok) throw new Error('upload');
+      m.p.fid = r.fid;
+    }
+    const payload = m.p.type === 'txt' ? m.p.x : JSON.stringify(m.p);
+    const data = await encryptText(payload);
+    const r2 = await apiPost({ action: 'add', id: m.id, time: m.time, device: m.device, data });
+    if (!r2 || !r2.ok) throw new Error('add');
+    pending.delete(m.id);
+    m.failed = false;
+  } catch (e) {
+    pending.delete(m.id);
+    m.failed = true;
+  }
+  render(true);
+}
+function queue(p, extra) {
+  const m = { id: 'm' + Date.now() + Math.random().toString(36).slice(2, 7), time: Date.now(), device: myDevice, p };
+  if (extra) Object.assign(m, extra);
+  cache.set(m.id, p);
+  pending.add(m.id);
+  messages.push(m);
+  render(true);
+  $('list').scrollTop = $('list').scrollHeight;
+  pushToServer(m);
+  return m;
+}
+function send() {
+  const ta = $('ta');
+  const text = ta.value.trim();
+  if (!text) return;
+  ta.value = ''; ta.style.height = 'auto';
+  queue({ type: 'txt', x: text });
+}
+function sendMedia(type, blob, mime, dur, size) {
+  const p = { gn: 1, type, fid: '', mime };
+  if (dur) p.dur = dur;
+  if (size) p.size = size;
+  const m = queue(p, { _blob: blob });
+  mediaUrls.set(m.id, URL.createObjectURL(blob));
+  render(true);
+}
+function compressImage(file) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      let w = img.naturalWidth, h = img.naturalHeight;
+      const s = Math.min(1, IMG_MAX / Math.max(w, h));
+      w = Math.round(w * s); h = Math.round(h * s);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b ? res(b) : rej(new Error('blob')), 'image/jpeg', IMG_QUALITY);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('img')); };
+    img.src = url;
+  });
+}
+async function sendFile(f) {
+  if (f.type.indexOf('video/') === 0) {
+    if (f.size > VIDEO_MAX_MB * 1048576) { alert('Video is too large (max ' + VIDEO_MAX_MB + ' MB). Send a shorter clip.'); return; }
+    sendMedia('vid', f, f.type || 'video/mp4', 0, f.size);
+    return;
+  }
+  try {
+    const blob = await compressImage(f);
+    sendMedia('img', blob, 'image/jpeg');
+  } catch (e) { alert('Could not send this photo. Try another one.'); }
+}
+function retry(id) {
+  const m = messages.find(x => x.id === id);
+  if (!m) return;
+  m.failed = false; pending.add(id); render(true);
+  pushToServer(m);
+}
+async function removeMsg(id) {
+  if (!confirm('Delete this?')) return;
+  const m = messages.find(x => x.id === id);
+  deleted.add(id);
+  messages = messages.filter(x => x.id !== id);
+  render(true);
+  try { await apiPost({ action: 'del', id, fid: (m && m.p && m.p.fid) || '' }); }
+  catch (e) { deleted.delete(id); /* it will come back on next sync */ }
+}
+
+/* ---------- voice message ---------- */
+let rec = null, recChunks = [], recTimer = null, recStart = 0, recStream = null;
+function pickMime() {
+  const c = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus'];
+  if (!window.MediaRecorder) return '';
+  for (const t of c) { if (MediaRecorder.isTypeSupported(t)) return t; }
+  return '';
+}
+async function toggleRec() {
+  if (rec) { rec.stop(); return; }
+  if (!window.MediaRecorder || !navigator.mediaDevices) { alert('Voice recording is not supported in this browser.'); return; }
+  try { recStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch (e) { alert('Microphone not allowed.'); return; }
+  const mime = pickMime();
+  rec = new MediaRecorder(recStream, mime ? { mimeType: mime } : undefined);
+  recChunks = [];
+  rec.ondataavailable = e => { if (e.data && e.data.size) recChunks.push(e.data); };
+  rec.onstop = () => {
+    clearInterval(recTimer);
+    recStream.getTracks().forEach(t => t.stop());
+    const type = ((rec && rec.mimeType) || mime || 'audio/webm').split(';')[0];
+    const dur = Math.round((Date.now() - recStart) / 1000);
+    const blob = new Blob(recChunks, { type });
+    rec = null;
+    $('mic').classList.remove('on'); $('mic').textContent = '🎤';
+    $('ta').placeholder = PLACEHOLDER;
+    if (blob.size < 1000 || dur < 1) return;
+    sendMedia('aud', blob, type, dur);
+  };
+  recStart = Date.now();
+  rec.start();
+  $('mic').classList.add('on'); $('mic').textContent = '⏹';
+  recTimer = setInterval(() => {
+    const s = Math.round((Date.now() - recStart) / 1000);
+    $('ta').placeholder = 'Recording... ' + fmtDur(s) + '  (tap ⏹ to send)';
+    if (s >= VOICE_MAX_SEC && rec) rec.stop();
+  }, 500);
+  $('ta').placeholder = 'Recording... 0:00  (tap ⏹ to send)';
+}
+
+/* ---------- login ---------- */
+async function login(pw, auto) {
+  if (!pw) return;
+  if (API_URL.indexOf('PASTE_') === 0) { $('err').textContent = 'Set API_URL in the code first.'; return; }
+  const btn = $('enter');
+  btn.disabled = true; $('err').textContent = auto ? '' : 'Checking...';
+  try {
+    if (location.hash === '#hash') {
+      $('err').textContent = 'Hash: ' + await pwHash(pw);
+      btn.disabled = false;
+      return;
+    }
+    if (PW_HASH && (await pwHash(pw)) !== PW_HASH) {
+      try { sessionStorage.removeItem('gn_pw'); } catch (e2) {}
+      $('err').textContent = 'Wrong password';
+      btn.disabled = false;
+      return;
+    }
+    key = await deriveKey(pw);
+    const rows = await apiGet();
+    if (rows.length) {
+      try { await decryptText(rows[rows.length - 1].data); }
+      catch (e) { key = null; try { sessionStorage.removeItem('gn_pw'); } catch (e2) {} $('err').textContent = 'Wrong password'; btn.disabled = false; return; }
+    }
+    try { sessionStorage.setItem('gn_pw', pw); } catch (e) {}
+    $('lock').classList.add('hidden');
+    $('app').classList.remove('hidden');
+    await sync();
+    $('list').scrollTop = $('list').scrollHeight;
+    timer = setInterval(() => { if (!document.hidden) sync().catch(() => {}); }, POLL_MS);
+  } catch (e) {
+    $('err').textContent = 'Could not connect. Check internet or API_URL.';
+  }
+  btn.disabled = false;
+}
+
+/* ---------- events ---------- */
+$('enter').onclick = () => login($('pw').value, false);
+$('pw').addEventListener('keydown', e => { if (e.key === 'Enter') login($('pw').value, false); });
+$('form').addEventListener('submit', e => { e.preventDefault(); send(); });
+$('ta').addEventListener('input', e => { const t = e.target; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'; });
+$('ta').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); } });
+$('attach').onclick = () => $('file').click();
+$('file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) sendFile(f); });
+$('mic').onclick = toggleRec;
+$('viewer').onclick = () => { $('viewer').classList.add('hidden'); $('viewerImg').src = ''; };
+$('lockBtn').onclick = () => { try { sessionStorage.removeItem('gn_pw'); } catch (e) {} location.reload(); };
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (HIDE_ON_LEAVE && key) showCalc(); }
+  else if (key) sync().catch(() => {});
+});
+/* when playback stops, apply any update that was waiting */
+['pause', 'ended'].forEach(ev => $('list').addEventListener(ev, () => { if (dirty) render(true); }, true));
+
+/* ---------- Casio fx-991EX style calculator ---------- */
+const D = (k, f, o) => Object.assign({k: k, f: f}, o || {});
+const R6 = [
+  D('SHIFT','',{sl:'SHIFT',c:'rnd'}), D('ALPHA','',{al:'ALPHA',c:'rnd'}), 'PAD', D('MENU','',{p:'MENU',s:'SETUP',c:'rnd'}), D('ON','',{p:'ON',c:'rnd'}),
+  D('OPTN','OPTN',{sl:'QR'}), D('CALC','CALC',{sl:'SOLVE ='}), D('∫','∫▫',{sl:'d/dx ∷'}), D('X','x',{sl:'Σ'}),
+  D('a/b','▫⁄▫',{sl:'▪▫'}), D('√','√▪',{s:'∛',sl:'∛'}), D('x²','x²',{s:'x³',b:'DEC'}), D('xʸ','x▪',{s:'ʸ√',sl:'▪√',b:'HEX'}), D('log','log▪',{s:'10ˣ',sl:'10▪',b:'BIN'}), D('ln','ln',{s:'eˣ',sl:'e▪',b:'OCT'}),
+  D('(−)','(−)',{s:'log',a:'A',al:'A'}), D('°','° ʹ ʺ',{sl:'FACT',a:'B',al:'B'}), D('x⁻¹','x⁻¹',{s:'x!',a:'C',al:'C'}), D('sin','sin',{s:'sin⁻¹',a:'D',al:'D'}), D('cos','cos',{s:'cos⁻¹',a:'E',al:'E'}), D('tan','tan',{s:'tan⁻¹',a:'F',al:'F'}),
+  D('STO','STO',{s:'RCL',sl:'RECALL'}), D('ENG','ENG',{sl:'∠ ←'}), D('(','(',{s:'Abs'}), D(')',')',{s:',',a:'X',al:'X'}), D('S⇔D','S⇔D',{sl:'a b⁄c⇔d⁄c',a:'Y',al:'Y'}), D('M+','M+',{s:'M−',a:'M',al:'M'})
+];
+const R5 = [
+  D('7','7',{sl:'CONST'}), D('8','8',{sl:'CONV'}), D('9','9',{s:'RESET'}), D('DEL','DEL',{s:'INS',al:'UNDO',c:'bluek'}), D('AC','AC',{s:'OFF',c:'bluek'}),
+  D('4','4'), D('5','5'), D('6','6'), D('×','×',{s:'nPr'}), D('÷','÷',{s:'nCr'}),
+  D('1','1'), D('2','2'), D('3','3'), D('+','+',{sl:'Pol'}), D('−','−',{sl:'Rec'}),
+  D('0','0',{sl:'Rnd'}), D('.','•',{s:'Ran#'}), D('EXP','×10ˣ',{s:'π',a:'e',al:'e'}), D('Ans','Ans',{s:'%'}), D('=','=',{s:'≈'})
+];
+let T = [], cu = 0, res = '0', done = false, ansVal = 0, ang = 'D', sh = false, al = false, stoPend = false, resOk = false, resMode = 0, vars = {}, hist = [], hIdx = 0;
+const VARS = 'ABCDEFXYM';
+const isVar = k => k.length === 1 && VARS.indexOf(k) >= 0;
+const FN = {'√':'√','∛':'∛','sin':'sin','cos':'cos','tan':'tan','sin⁻¹':'sin⁻¹','cos⁻¹':'cos⁻¹','tan⁻¹':'tan⁻¹','log':'log','ln':'ln','10ˣ':'10^','eˣ':'e^','Abs':'Abs'};
+const POST = {'x²':'²','x³':'³','x⁻¹':'⁻¹','x!':'!','%':'%','°':'°'};
+function mkTok(k) {
+  if (/^[0-9.]$/.test(k)) return {t:'n', d:k};
+  if ('+−×÷'.indexOf(k) >= 0) return {t:'op', d:k, v:{'+':'+','−':'-','×':'*','÷':'/'}[k]};
+  if (k === 'a/b') return {t:'op', d:'⁄', v:'/'};
+  if (k === 'xʸ') return {t:'op', d:'^', v:'^'};
+  if (k === 'ʸ√') return {t:'op', d:'ʸ√', v:'root'};
+  if (k === 'nPr') return {t:'op', d:'P', v:'P'};
+  if (k === 'nCr') return {t:'op', d:'C', v:'C'};
+  if (k === '(') return {t:'lp', d:'('};
+  if (k === ')') return {t:'rp', d:')'};
+  if (k === '(−)') return {t:'neg', d:'−'};
+  if (FN[k]) return {t:'fn', d:FN[k] + '(', f:k};
+  if (POST[k]) return {t:'post', d:POST[k], v:k};
+  if (k === 'π' || k === 'e' || k === 'Ran#') return {t:'c', d:k};
+  if (isVar(k)) return {t:'v', d:k};
+  if (k === 'Ans') return {t:'ans', d:'Ans'};
+  if (k === 'EXP') return {t:'exp', d:'×10^'};
+  return null;
+}
+function evaluate() {
+  let i = 0;
+  const toR = x => ang === 'D' ? x * Math.PI / 180 : ang === 'G' ? x * Math.PI / 200 : x;
+  const fromR = x => ang === 'D' ? x * 180 / Math.PI : ang === 'G' ? x * 200 / Math.PI : x;
+  const clean = x => Math.abs(x) < 1e-12 ? 0 : x;
+  const peek = () => T[i];
+  const M = () => { throw 'M'; }, S = () => { throw 'S'; };
+  function num() {
+    let s = '';
+    while (i < T.length && T[i].t === 'n') s += T[i++].d;
+    if (!s || s === '.' || (s.match(/\./g) || []).length > 1) S();
+    return parseFloat(s);
+  }
+  const starts = t => t && (t.t === 'n' || t.t === 'c' || t.t === 'v' || t.t === 'ans' || t.t === 'lp' || t.t === 'fn');
+  const isMinus = t => t && (t.t === 'neg' || (t.t === 'op' && t.v === '-'));
+  function expr() {
+    let v = term();
+    while (peek() && peek().t === 'op' && (peek().v === '+' || peek().v === '-')) {
+      const o = T[i++].v, r = term(); v = o === '+' ? v + r : v - r;
+    }
+    return v;
+  }
+  function term() {
+    let v = unary();
+    for (;;) {
+      const t = peek();
+      if (t && t.t === 'op' && (t.v === '*' || t.v === '/')) {
+        i++; const r = unary();
+        if (t.v === '/' && r === 0) M();
+        v = t.v === '*' ? v * r : v / r;
+      } else if (starts(t)) v *= unary();
+      else return v;
+    }
+  }
+  function unary() {
+    const t = peek();
+    if (isMinus(t)) { i++; return -unary(); }
+    if (t && t.t === 'op' && t.v === '+') { i++; return unary(); }
+    return power();
+  }
+  function comb() {
+    let n = postfix();
+    for (;;) {
+      const t = peek();
+      if (!(t && t.t === 'op' && (t.v === 'P' || t.v === 'C'))) return n;
+      i++; const r = postfix();
+      if (n < 0 || r < 0 || n !== Math.floor(n) || r !== Math.floor(r) || r > n) M();
+      let v = 1;
+      if (t.v === 'P') for (let k = 0; k < r; k++) v *= (n - k);
+      else { const rr = Math.min(r, n - r); for (let k = 1; k <= rr; k++) v = v * (n - rr + k) / k; v = Math.round(v); }
+      n = v;
+    }
+  }
+  function power() {
+    const b = comb(), t = peek();
+    if (t && t.t === 'op' && t.v === '^') { i++; const r = Math.pow(b, unary()); if (!isFinite(r)) M(); return r; }
+    if (t && t.t === 'op' && t.v === 'root') { i++; const x = unary(); if (b === 0) M(); const r = (x < 0 && Math.abs(b) % 2 === 1) ? -Math.pow(-x, 1 / b) : Math.pow(x, 1 / b); if (!isFinite(r)) M(); return r; }
+    return b;
+  }
+  function postfix() {
+    let v = primary();
+    for (;;) {
+      const t = peek();
+      if (!t) return v;
+      if (t.t === 'post') {
+        i++;
+        if (t.v === 'x²') v = v * v;
+        else if (t.v === 'x³') v = v * v * v;
+        else if (t.v === 'x⁻¹') { if (v === 0) M(); v = 1 / v; }
+        else if (t.v === '%') v = v / 100;
+        else if (t.v === '°') v = ang === 'D' ? v : ang === 'R' ? v * Math.PI / 180 : v * 10 / 9;
+        else { if (v < 0 || v !== Math.floor(v) || v > 69) M(); let f = 1; for (let k = 2; k <= v; k++) f *= k; v = f; }
+      } else if (t.t === 'exp') {
+        i++; let sg = 1;
+        if (isMinus(peek())) { sg = -1; i++; }
+        v *= Math.pow(10, sg * num());
+      } else return v;
+    }
+  }
+  function primary() {
+    const t = peek();
+    if (!t) S();
+    if (t.t === 'n') return num();
+    if (t.t === 'c') { i++; return t.d === 'π' ? Math.PI : t.d === 'e' ? Math.E : Math.floor(Math.random() * 1000) / 1000; }
+    if (t.t === 'v') { i++; return vars[t.d] || 0; }
+    if (t.t === 'ans') { i++; return ansVal; }
+    if (t.t === 'lp') { i++; const v = expr(); if (peek() && peek().t === 'rp') i++; return v; }
+    if (t.t === 'fn') {
+      i++; const v = expr(); if (peek() && peek().t === 'rp') i++;
+      switch (t.f) {
+        case '√': if (v < 0) M(); return Math.sqrt(v);
+        case '∛': return Math.cbrt(v);
+        case 'sin': return clean(Math.sin(toR(v)));
+        case 'cos': return clean(Math.cos(toR(v)));
+        case 'tan': { if (Math.abs(Math.cos(toR(v))) < 1e-12) M(); return clean(Math.tan(toR(v))); }
+        case 'sin⁻¹': if (Math.abs(v) > 1) M(); return fromR(Math.asin(v));
+        case 'cos⁻¹': if (Math.abs(v) > 1) M(); return fromR(Math.acos(v));
+        case 'tan⁻¹': return fromR(Math.atan(v));
+        case 'log': if (v <= 0) M(); return Math.log10(v);
+        case 'ln': if (v <= 0) M(); return Math.log(v);
+        case '10ˣ': return Math.pow(10, v);
+        case 'eˣ': return Math.exp(v);
+        case 'Abs': return Math.abs(v);
+      }
+    }
+    return S();
+  }
+  const v = expr();
+  if (i < T.length) S();
+  if (!isFinite(v)) M();
+  return v;
+}
+function fmtNum(n) {
+  if (n === 0) return '0';
+  const a = Math.abs(n);
+  if (a >= 1e10 || a < 1e-9) {
+    const [m, e] = n.toExponential(9).split('e');
+    return parseFloat(m) + '×10^' + parseInt(e, 10);
+  }
+  return String(parseFloat(n.toPrecision(10)));
+}
+function fmtEng(n) {
+  if (n === 0) return '0';
+  const e = Math.floor(Math.log10(Math.abs(n)) / 3) * 3;
+  if (e === 0) return fmtNum(n);
+  return parseFloat((n / Math.pow(10, e)).toPrecision(10)) + '×10^' + e;
+}
+function toFrac(x) {
+  if (!isFinite(x) || Number.isInteger(x)) return null;
+  const sg = x < 0 ? '-' : ''; x = Math.abs(x);
+  let h1 = 1, h0 = 0, k1 = 0, k0 = 1, b = x;
+  for (let n = 0; n < 24; n++) {
+    const a = Math.floor(b);
+    [h1, h0] = [a * h1 + h0, h1]; [k1, k0] = [a * k1 + k0, k1];
+    if (k1 > 100000 || Math.abs(x - h1 / k1) < 1e-11 * Math.max(1, x) || b === a) break;
+    b = 1 / (b - a);
+  }
+  if (k1 > 100000 || Math.abs(x - h1 / k1) > 1e-9 * Math.max(1, x)) return null;
+  return sg + h1 + '⁄' + k1;
+}
+function showRes() {
+  resOk = true;
+  res = resMode === 1 ? (toFrac(ansVal) || fmtNum(ansVal)) : resMode === 2 ? fmtEng(ansVal) : fmtNum(ansVal);
+}
+function calc() {
+  try { ansVal = evaluate(); resMode = 0; showRes(); }
+  catch (e) { resOk = false; res = e === 'M' ? 'Math ERROR' : 'Syntax ERROR'; }
+  done = true;
+}
+function lab(o) {
+  const sl = o.sl !== undefined ? o.sl : (o.s || '');
+  let h = '';
+  if (o.p) h += '<i class="wh">' + o.p + '</i>';
+  if (sl) h += '<i class="sg">' + sl + '</i>';
+  if (o.b) h += '<i class="bu">' + o.b + '</i>';
+  if (o.al) h += '<i class="ar">' + o.al + '</i>';
+  return h;
+}
+function draw() {
+  const ex = $('ex');
+  ex.textContent = '';
+  ex.appendChild(document.createTextNode(T.slice(0, cu).map(t => t.d).join('')));
+  if (!done) { const c = document.createElement('span'); c.className = 'cu'; ex.appendChild(c); }
+  ex.appendChild(document.createTextNode(T.slice(cu).map(t => t.d).join('')));
+  ex.scrollTop = ex.scrollHeight;
+  $('res').textContent = res;
+  $('st').textContent = [sh ? 'S' : '', al ? 'A' : '', stoPend ? 'STO' : '', vars.M ? 'M' : ''].filter(Boolean).join(' ');
+  $('stD').textContent = ang;
+  document.querySelectorAll('#k6 .rnd').forEach(b => b.classList.toggle('on', (b.dataset.k === 'SHIFT' && sh) || (b.dataset.k === 'ALPHA' && al)));
+}
+function loadHist() { T = hist[hIdx].slice(); cu = T.length; done = false; res = '0'; }
+function press(o) {
+  let k = o.k;
+  if (k === 'SHIFT') { sh = !sh; al = false; draw(); return; }
+  if (k === 'ALPHA') { al = !al; sh = false; draw(); return; }
+  const wasS = sh, wasA = al; sh = false; al = false;
+  if (wasS) { if (!o.s) { draw(); return; } k = o.s; }
+  else if (wasA) { if (!o.a) { draw(); return; } k = o.a; }
+  if (k === 'ON' || k === 'OFF') k = 'AC';
+  if (k === 'CALC' || k === '≈') k = '=';
+  if (k === 'STO') { stoPend = true; draw(); return; }
+  if (k === 'RCL') { al = true; draw(); return; }
+  if (stoPend && isVar(k)) {
+    if (!done && T.length) calc();
+    if (resOk) vars[k] = ansVal;
+    stoPend = false; draw(); return;
+  }
+  stoPend = false;
+  if (k === 'AC') { T = []; cu = 0; res = '0'; done = false; resOk = false; }
+  else if (k === 'RESET') { T = []; cu = 0; res = '0'; done = false; vars = {}; hist = []; ang = 'D'; ansVal = 0; resOk = false; }
+  else if (k === 'SETUP') { ang = ang === 'D' ? 'R' : ang === 'R' ? 'G' : 'D'; }
+  else if (k === 'DEL') {
+    if (done) { done = false; res = '0'; cu = T.length; }
+    else if (cu > 0) { T.splice(cu - 1, 1); cu--; }
+  } else if (k === '◀' || k === '▶') {
+    if (done) { done = false; res = '0'; cu = T.length; }
+    else cu = Math.max(0, Math.min(T.length, cu + (k === '◀' ? -1 : 1)));
+  } else if (k === '▲') { if (hIdx > 0) { hIdx--; loadHist(); } }
+  else if (k === '▼') { if (hIdx < hist.length - 1) { hIdx++; loadHist(); } }
+  else if (k === '=') {
+    if (T.length) { calc(); if (resOk) { hist.push(T.slice()); hIdx = hist.length; } }
+  } else if (k === 'S⇔D') { if (done && resOk) { resMode = resMode === 1 ? 0 : 1; showRes(); } }
+  else if (k === 'ENG') { if (done && resOk) { resMode = resMode === 2 ? 0 : 2; showRes(); } }
+  else if (k === 'M+' || k === 'M−') {
+    if (!done && T.length) calc();
+    if (resOk) { vars.M = (vars.M || 0) + (k === 'M+' ? ansVal : -ansVal); done = true; }
+  } else {
+    const tok = mkTok(k); if (!tok) { draw(); return; }
+    if (done) {
+      const cont = tok.t === 'op' || tok.t === 'post' || tok.t === 'exp';
+      T = (cont && resOk) ? [{t:'ans', d:'Ans'}] : []; cu = T.length; done = false; res = '0';
+    }
+    T.splice(cu, 0, tok); cu++;
+  }
+  draw();
+}
+function mkGrid(box, list) {
+  list.forEach(function (o) {
+    if (o === 'PAD') {
+      const pad = document.createElement('div'); pad.className = 'pad';
+      ['▲', '◀', '▶', '▼'].forEach(function (a) {
+        const b = document.createElement('button'); b.type = 'button'; b.textContent = a;
+        b.onclick = function () { press({k: a}); }; pad.appendChild(b);
+      });
+      box.appendChild(pad); return;
+    }
+    const cell = document.createElement('div'); cell.className = 'cell';
+    const l = document.createElement('div'); l.className = 'lb'; l.innerHTML = lab(o);
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = o.f; b.dataset.k = o.k;
+    if (o.c) b.className = o.c;
+    if (o.k === 'X') b.style.fontStyle = 'italic';
+    b.onclick = function () { press(o); };
+    cell.appendChild(l); cell.appendChild(b); box.appendChild(cell);
+  });
+}
+(function buildKeys() {
+  mkGrid($('k6'), R6);
+  mkGrid($('k5'), R5);
+  draw();
+})();
+
+function showCalc() {
+  $('app').classList.add('hidden');
+  $('lock').classList.add('hidden');
+  $('viewer').classList.add('hidden');
+  $('calc').classList.remove('hidden');
+}
+/* the small sign on the calculator opens the notepad */
+$('sign').onclick = () => {
+  $('calc').classList.add('hidden');
+  if (key) { $('app').classList.remove('hidden'); render(true); const l = $('list'); l.scrollTop = l.scrollHeight; return; }
+  $('lock').classList.remove('hidden');
+  let saved = null;
+  try { saved = sessionStorage.getItem('gn_pw'); } catch (e) {}
+  if (saved) login(saved, true); else $('pw').focus();
+};
+</script>
+</body>
+</html>
